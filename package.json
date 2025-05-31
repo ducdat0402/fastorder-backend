@@ -10,12 +10,17 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@zxing/library": "^0.21.3",
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.6.0",
     "cors": "^2.8.5",
+    "crypto": "^1.0.1",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
+    "express-rate-limit": "^7.5.0",
+    "html5-qrcode": "^2.3.8",
     "jsonwebtoken": "^9.0.2",
+    "jsqr": "^1.4.0",
     "mysql2": "^3.14.0"
   }
 }
