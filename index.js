@@ -30,7 +30,10 @@ const db = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 50, // Tăng số lượng kết nối tối đa
+  queueLimit: 0
 });
 
 // Kiểm tra kết nối MySQL
@@ -133,15 +136,33 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// API lấy danh sách món ăn
+// // API lấy danh sách món ăn
+// app.get('/api/foods', async (req, res) => {
+//   try {
+//     const { category_id } = req.query;
+//     let query = 'SELECT f.*, c.name as category_name FROM food f JOIN categories c ON f.category_id = c.id WHERE f.is_available = ?';
+//     const params = [true];
+
+//     if (category_id) {
+//       query += ' AND f.category_id = ?';
+//       params.push(category_id);
+//     }
+
+//     const [foods] = await db.query(query, params);
+//     res.json(foods);
+//   } catch (err) {
+//     console.error('Error in /foods:', err);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 app.get('/api/foods', async (req, res) => {
   try {
     const { category_id } = req.query;
-    let query = 'SELECT f.*, c.name as category_name FROM food f JOIN categories c ON f.category_id = c.id WHERE f.is_available = ?';
-    const params = [true];
+    let query = 'SELECT f.*, c.name as category_name FROM food f JOIN categories c ON f.category_id = c.id';
+    const params = [];
 
     if (category_id) {
-      query += ' AND f.category_id = ?';
+      query += ' WHERE f.category_id = ?';
       params.push(category_id);
     }
 
@@ -1029,6 +1050,56 @@ app.delete('/api/orders/:orderId', authMiddleware, async (req, res) => {
     res.json({ message: 'Order cancelled successfully' });
   } catch (err) {
     console.error('Error in /api/orders/:orderId:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Lấy danh sách tất cả user
+app.get('/api/users', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, name, email, role FROM users');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Đổi quyền user
+app.put('/api/users/:id/role', async (req, res) => {
+  const { id } = req.params;
+  const { role } = req.body;
+  if (!['admin', 'user'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
+  }
+  try {
+    await db.query('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update role' });
+  }
+});
+
+// Xóa user
+app.delete('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await db.query('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// API lấy tất cả món ăn (không lọc is_available, chỉ cho admin)
+app.get('/api/admin/foods', authMiddleware, async (req, res) => {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  try {
+    const [foods] = await db.query('SELECT f.*, c.name as category_name FROM food f JOIN categories c ON f.category_id = c.id');
+    res.json(foods);
+  } catch (err) {
+    console.error('Error in /admin/foods:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
